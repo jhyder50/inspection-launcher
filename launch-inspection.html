@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Launching Inspection…</title>
+</head>
+<body>
+  <p>Launching inspection form…</p>
+
+  <script>
+    // Read prjNumber from the URL (Experience Builder will pass it)
+    const params = new URLSearchParams(window.location.search);
+    const prjNumber = params.get('prjNumber') || '';
+
+    if (!prjNumber) {
+      document.body.innerHTML = '<p style="color:red;">Missing prjNumber in URL.</p>';
+      throw new Error('Missing prjNumber');
+    }
+
+    // Your Redirect Flow HTTP POST URL (from the trigger)
+    const flowUrlBase = 'https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a4b68f7d17b6467bbe61dfadf1bd160f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=R7nAJo51p5zbZl-Pro4h1oNimLk-7ZRFTf9k1ZkUm3s';
+
+    // Append prjNumber as a query string so your flow can read triggerOutputs()?['queries']?['prjNumber']
+    const actionUrl = flowUrlBase + (flowUrlBase.includes('?') ? '&' : '?') +
+      'prjNumber=' + encodeURIComponent(prjNumber) +
+      '&cb=' + Date.now();
+
+    // Create a POST form and submit it (browser will follow 302 redirect to Survey123)
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = actionUrl;
+
+    document.body.appendChild(form);
+    form.submit();
+  </script>
+</body>
+</html>
