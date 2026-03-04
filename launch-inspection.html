@@ -2,96 +2,88 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Launching…</title>
+  <meta name="referrer" content="no-referrer" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Launching inspection…</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #ffffff;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      color: #ffffff; /* invisible text */
-    }
-    /* Optional: if you WANT a tiny visible "Launching..." comment, change color to #666 */
-    #msg { font-size: 12px; padding: 8px; }
-    #err {
-      display: none;
-      color: #b00020;
-      font-size: 14px;
-      padding: 16px;
-      white-space: pre-wrap;
-      overflow: auto;
-    }
+    html, body { margin:0; padding:0; background:#fff; color:#111; font-family: Arial, sans-serif; }
+    /* Keep it basically "invisible" */
+    .msg { padding: 8px 10px; font-size: 12px; color:#666; }
+    .err { padding: 12px 10px; font-size: 14px; color:#b00020; white-space: pre-wrap; }
   </style>
 </head>
+
 <body>
-  <div id="msg">Launching…</div>
-  <div id="err"></div>
+  <div id="status" class="msg">Launching inspection…</div>
 
   <script>
-    // ========= CONFIG =========
-    // Paste your RedirectToInspectionSurvey HTTP trigger URL here (expects POST)
-    const PA_REDIRECT_FLOW_URL = "https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ac46ced666924de5b50ec365b76821e3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=QK2AGPyM1vRd16g0ZvVgdwnJ2vnvIC_GsnJPwD6rIRM";
-    // ==========================
+    (async () => {
+      const statusEl = document.getElementById('status');
 
-    function showError(text) {
-      document.getElementById("msg").style.display = "none";
-      const err = document.getElementById("err");
-      err.style.display = "block";
-      err.textContent = text;
-      // also log for debugging
-      console.error(text);
-    }
-
-    function getQueryParam(name) {
+      // 1) Read prjNumber from URL query string
       const params = new URLSearchParams(window.location.search);
-      return params.get(name);
-    }
+      const prjNumber = (params.get('prjNumber') || '').trim();
 
-    (async function main() {
+      if (!prjNumber) {
+        statusEl.className = 'err';
+        statusEl.textContent = "Missing prjNumber in URL.\n\nExample:\n  launch-inspection.html?prjNumber=2026022340";
+        return;
+      }
+
+      // 2) Your Power Automate "When an HTTP request is received" trigger URL
+      // IMPORTANT: This flow must accept POST, and you should use Request Body JSON Schema
+      // with { prjNumber: string } and use triggerBody()?['prjNumber'] in the flow.
+      const flowUrl =
+        "https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a4b68f7d17b6467bbe61dfadf1bd160f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=R7nAJo51p5zbZl-Pro4h1oNimLk-7ZRFTf9k1ZkUm3s";
+
+      // Optional cache buster (keeps proxies from caching)
+      const urlWithCb = flowUrl + (flowUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+
       try {
-        const prjNumber = (getQueryParam("prjNumber") || "").trim();
-        if (!prjNumber) {
-          showError("Missing prjNumber in URL.\n\nExample:\nlaunch-inspection.html?prjNumber=2026022340");
-          return;
-        }
-
-        // Add a cache-buster to avoid any weird caching
-        const actionUrl = PA_REDIRECT_FLOW_URL + (PA_REDIRECT_FLOW_URL.includes("?") ? "&" : "?") + "cb=" + Date.now();
-
-        // Call your RedirectToInspectionSurvey flow via POST
-        // IMPORTANT: use fetch + JSON body so you can keep "Who can trigger = Anyone"
-        const resp = await fetch(actionUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        // 3) Call the flow with POST JSON body
+        const res = await fetch(urlWithCb, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prjNumber })
         });
 
-        if (!resp.ok) {
-          const txt = await resp.text().catch(() => "");
-          showError("Flow call failed.\nHTTP " + resp.status + "\n\n" + txt);
+        const text = await res.text();
+
+        if (!res.ok) {
+          statusEl.className = 'err';
+          statusEl.textContent =
+            `Flow call failed: HTTP ${res.status}\n\n${text}`;
           return;
         }
 
-        // Flow should return: { "redirectUrl": "https://survey123..."}
-        const data = await resp.json().catch(() => null);
-        if (!data || !data.redirectUrl) {
-          showError("Flow did not return redirectUrl.\nResponse:\n" + JSON.stringify(data, null, 2));
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          statusEl.className = 'err';
+          statusEl.textContent =
+            "Flow did not return JSON.\n\nResponse:\n" + text;
           return;
         }
 
-        // Redirect into Survey123
-        window.location.replace(data.redirectUrl);
+        const redirectUrl = data.redirectUrl || data.url || data.location;
 
-      } catch (e) {
-        showError("Error launching inspection.\n\n" + (e && e.stack ? e.stack : String(e)));
+        if (!redirectUrl) {
+          statusEl.className = 'err';
+          statusEl.textContent =
+            "Flow did not return redirectUrl.\n\nResponse JSON:\n" + JSON.stringify(data, null, 2);
+          return;
+        }
+
+        // 4) Redirect to Survey123
+        window.location.replace(redirectUrl);
+
+      } catch (err) {
+        statusEl.className = 'err';
+        statusEl.textContent =
+          "Error launching inspection.\n\n" + (err && err.message ? err.message : String(err));
       }
     })();
   </script>
 </body>
 </html>
-
-
