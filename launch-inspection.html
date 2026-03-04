@@ -1,89 +1,99 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Launching…</title>
-  <style>
-    /* Make it effectively invisible */
-    html, body { margin:0; padding:0; background:#fff; color:#fff; }
-    #msg { font-family: Arial, sans-serif; font-size: 14px; padding: 12px; color:#444; display:none; }
-  </style>
+<meta charset="utf-8">
+<title>Launching inspection...</title>
+<style>
+html,body{
+  margin:0;
+  padding:0;
+  background:#ffffff;
+  font-family:Arial, sans-serif;
+}
+#status{
+  font-size:12px;
+  color:#888;
+  padding:6px;
+}
+#error{
+  display:none;
+  color:#b00020;
+  padding:12px;
+  white-space:pre-wrap;
+}
+</style>
 </head>
+
 <body>
-<div id="msg"></div>
+
+<div id="status">Launching inspection...</div>
+<div id="error"></div>
 
 <script>
+
 (async () => {
-  // === CONFIG ===
-  const FLOW_URL = "https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ac46ced666924de5b50ec365b76821e3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=QK2AGPyM1vRd16g0ZvVgdwnJ2vnvIC_GsnJPwD6rIRM";
 
-  // Your Survey123 target (inspection form)
-  const SURVEY_BASE = "https://survey123.arcgis.com/share/e7c162b1fa4a46c99c785f6a5cc3ae00";
+const FLOW_URL = "https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ac46ced666924de5b50ec365b76821e3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=QK2AGPyM1vRd16g0ZvVgdwnJ2vnvIC_GsnJPwD6rIRM";
 
-  // === Helpers ===
-  const params = new URLSearchParams(window.location.search);
-  const prjNumber = (params.get("prjNumber") || "").trim();
+const params = new URLSearchParams(window.location.search);
+const prjNumber = params.get("prjNumber");
 
-  const showError = (text) => {
-    const el = document.getElementById("msg");
-    el.style.display = "block";
-    el.style.color = "crimson";
-    el.textContent = text;
-  };
+const errorBox = document.getElementById("error");
 
-  const extractFourDigits = (val) => {
-    // Handles: "0006" or "2026022340-0006" or "-0001" etc.
-    const s = String(val ?? "");
-    const m = s.match(/(\d{4})\s*$/); // last 4 digits
-    return m ? m[1] : "";
-  };
+function showError(msg){
+  errorBox.style.display="block";
+  errorBox.textContent=msg;
+}
 
-  if (!prjNumber) {
-    showError("Missing prjNumber in URL. Example: ?prjNumber=2026022340");
+if(!prjNumber){
+  showError("Missing prjNumber in URL");
+  return;
+}
+
+try{
+
+  const response = await fetch(FLOW_URL,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({
+      prjNumber: prjNumber
+    })
+  });
+
+  const text = await response.text();
+
+  if(!response.ok){
+    showError("Flow call failed: HTTP "+response.status+"\n\n"+text);
     return;
   }
 
-  try {
-    // POST JSON to the flow trigger
-    const resp = await fetch(FLOW_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prjNumber })
-    });
+  let data;
 
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => "");
-      throw new Error(`Flow call failed: HTTP ${resp.status} ${txt}`);
-    }
-
-    const data = await resp.json().catch(() => ({}));
-
-    // 1) If flow returns redirectUrl, use it
-    if (data && typeof data.redirectUrl === "string" && data.redirectUrl.startsWith("http")) {
-      window.location.replace(data.redirectUrl);
-      return;
-    }
-
-    // 2) Otherwise, build Survey123 URL from prjNumber + inspecNum
-    const inspecNumRaw = data?.inspecNum ?? "";
-    const inspec4 = extractFourDigits(inspecNumRaw);
-
-    if (!inspec4) {
-      throw new Error(`Flow did not return redirectUrl and inspecNum was not usable. Response: ${JSON.stringify(data)}`);
-    }
-
-    const surveyUrl =
-      `${SURVEY_BASE}` +
-      `?field:prjNumber=${encodeURIComponent(prjNumber)}` +
-      `&field:inspecNum=${encodeURIComponent(inspec4)}`;
-
-    window.location.replace(surveyUrl);
-  } catch (e) {
-    showError("Error launching inspection. " + (e?.message || e));
-    console.error(e);
+  try{
+    data = JSON.parse(text);
   }
+  catch(e){
+    showError("Flow returned non JSON:\n\n"+text);
+    return;
+  }
+
+  if(!data.redirectUrl){
+    showError("Flow did not return redirectUrl\n\n"+JSON.stringify(data,null,2));
+    return;
+  }
+
+  window.location.replace(data.redirectUrl);
+
+}
+catch(err){
+  showError("Request error:\n"+err);
+}
+
 })();
+
 </script>
+
 </body>
 </html>
