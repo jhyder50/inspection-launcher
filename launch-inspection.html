@@ -2,88 +2,72 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="referrer" content="no-referrer" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Launching inspection…</title>
+  <title>Launching…</title>
   <style>
-    html, body { margin:0; padding:0; background:#fff; color:#111; font-family: Arial, sans-serif; }
-    /* Keep it basically "invisible" */
-    .msg { padding: 8px 10px; font-size: 12px; color:#666; }
-    .err { padding: 12px 10px; font-size: 14px; color:#b00020; white-space: pre-wrap; }
+    /* basically invisible */
+    html, body { margin:0; padding:0; background:#fff; }
+    #msg { font: 12px Arial, sans-serif; color:#fff; padding: 6px; } /* white text = invisible */
+    #err { font: 14px Arial, sans-serif; color:#b00020; padding: 12px; white-space: pre-wrap; }
   </style>
 </head>
-
 <body>
-  <div id="status" class="msg">Launching inspection…</div>
+  <div id="msg">Launching…</div>
+  <div id="err" style="display:none;"></div>
 
-  <script>
-    (async () => {
-      const statusEl = document.getElementById('status');
+<script>
+(async () => {
+  const errEl = document.getElementById('err');
 
-      // 1) Read prjNumber from URL query string
-      const params = new URLSearchParams(window.location.search);
-      const prjNumber = (params.get('prjNumber') || '').trim();
+  function showErr(t) {
+    errEl.style.display = 'block';
+    errEl.textContent = t;
+    console.error(t);
+  }
 
-      if (!prjNumber) {
-        statusEl.className = 'err';
-        statusEl.textContent = "Missing prjNumber in URL.\n\nExample:\n  launch-inspection.html?prjNumber=2026022340";
-        return;
-      }
+  const params = new URLSearchParams(window.location.search);
+  const prjNumber = (params.get('prjNumber') || '').trim();
 
-      // 2) Your Power Automate "When an HTTP request is received" trigger URL
-      // IMPORTANT: This flow must accept POST, and you should use Request Body JSON Schema
-      // with { prjNumber: string } and use triggerBody()?['prjNumber'] in the flow.
-      const flowUrl =
-        "https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a4b68f7d17b6467bbe61dfadf1bd160f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=R7nAJo51p5zbZl-Pro4h1oNimLk-7ZRFTf9k1ZkUm3s";
+  if (!prjNumber) {
+    showErr("Missing prjNumber.\nExample:\n  launch-inspection.html?prjNumber=2026022340");
+    return;
+  }
 
-      // Optional cache buster (keeps proxies from caching)
-      const urlWithCb = flowUrl + (flowUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+  // ✅ MUST be the URL from the trigger: "When an HTTP request is received" (HTTP POST URL)
+  const flowUrl = "https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ac46ced666924de5b50ec365b76821e3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=QK2AGPyM1vRd16g0ZvVgdwnJ2vnvIC_GsnJPwD6rIRM";
 
-      try {
-        // 3) Call the flow with POST JSON body
-        const res = await fetch(urlWithCb, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prjNumber })
-        });
+  try {
+    const res = await fetch(flowUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prjNumber })
+    });
 
-        const text = await res.text();
+    const text = await res.text();
 
-        if (!res.ok) {
-          statusEl.className = 'err';
-          statusEl.textContent =
-            `Flow call failed: HTTP ${res.status}\n\n${text}`;
-          return;
-        }
+    if (!res.ok) {
+      showErr(`Flow call failed: HTTP ${res.status}\n\n${text}`);
+      return;
+    }
 
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          statusEl.className = 'err';
-          statusEl.textContent =
-            "Flow did not return JSON.\n\nResponse:\n" + text;
-          return;
-        }
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) {
+      showErr("Flow returned non-JSON.\n\nResponse:\n" + text);
+      return;
+    }
 
-        const redirectUrl = data.redirectUrl || data.url || data.location;
+    if (!data.redirectUrl) {
+      showErr("Flow did not return redirectUrl.\n\nResponse:\n" + JSON.stringify(data, null, 2));
+      return;
+    }
 
-        if (!redirectUrl) {
-          statusEl.className = 'err';
-          statusEl.textContent =
-            "Flow did not return redirectUrl.\n\nResponse JSON:\n" + JSON.stringify(data, null, 2);
-          return;
-        }
+    window.location.replace(data.redirectUrl);
 
-        // 4) Redirect to Survey123
-        window.location.replace(redirectUrl);
-
-      } catch (err) {
-        statusEl.className = 'err';
-        statusEl.textContent =
-          "Error launching inspection.\n\n" + (err && err.message ? err.message : String(err));
-      }
-    })();
-  </script>
+  } catch (e) {
+    showErr("Request error:\n" + (e && e.message ? e.message : String(e)));
+  }
+})();
+</script>
 </body>
 </html>
