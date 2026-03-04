@@ -1,83 +1,73 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
-<meta charset="utf-8">
-<title>Launching inspection...</title>
-<style>
-html,body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif}
-#msg{font-size:12px;color:#fff;padding:6px} /* invisible */
-#err{display:none;font-size:14px;color:#b00020;padding:12px;white-space:pre-wrap}
-</style>
+  <meta charset="utf-8" />
+  <title>Launching…</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { margin:0; padding:0; width:100%; height:100%; background:transparent; }
+    body { overflow:hidden; }
+  </style>
 </head>
 <body>
-
-<div id="msg">Launching...</div>
-<div id="err"></div>
-
 <script>
 (async () => {
+  try {
+    // Read prjNumber from URL like: launch-inspection.html?prjNumber=2026022340
+    const params = new URLSearchParams(window.location.search);
+    const prjNumber = (params.get('prjNumber') || '').trim();
 
-const FLOW_URL = "https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com/powerautomate/automations/direct/workflows/c054ecfd3e96408a90c6a0d369e3fc96/triggers/manual/paths/invoke/run?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=D1s5hVGOKkRh0kJ50txJ8NDwNuBLGtcHC429siHiKgY";
+    if (!prjNumber) {
+      // stay invisible but show a tiny console error for you
+      console.error('Missing prjNumber in URL');
+      return;
+    }
 
-const params = new URLSearchParams(window.location.search);
-const prjNumber = params.get("prjNumber");
+    const flowUrl = 'https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ac46ced666924de5b50ec365b76821e3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=QK2AGPyM1vRd16g0ZvVgdwnJ2vnvIC_GsnJPwD6rIRM';
 
-const errBox = document.getElementById("err");
+    // Add cachebuster in query string to avoid any weird caching
+    const actionUrl = flowUrl + (flowUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
 
-function showError(msg){
-  errBox.style.display="block";
-  errBox.textContent=msg;
-}
+    // POST JSON so the flow can read triggerBody()?['prjNumber']
+    const resp = await fetch(actionUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prjNumber })
+    });
 
-if(!prjNumber){
-  showError("Missing prjNumber in URL");
-  return;
-}
+    const text = await resp.text();
 
-try{
+    // Try parse JSON
+    let data = null;
+    try { data = JSON.parse(text); } catch (e) {}
 
-  const res = await fetch(FLOW_URL,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json"
-    },
-    body:JSON.stringify({
-      prjNumber: prjNumber
-    })
-  });
+    // Best: flow returns redirectUrl
+    if (data && data.redirectUrl) {
+      window.location.replace(data.redirectUrl);
+      return;
+    }
 
-  const text = await res.text();
+    // Fallback: flow returns { prjNumber: "...", inspecNum: "0006" }
+    if (data && data.prjNumber && data.inspecNum) {
+      const url =
+        'https://survey123.arcgis.com/share/e7c162b1fa4a46c99c785f6a5cc3ae00' +
+        '?field:prjNumber=' + encodeURIComponent(data.prjNumber) +
+        '&field:inspecNum=' + encodeURIComponent(data.inspecNum);
+      window.location.replace(url);
+      return;
+    }
 
-  if(!res.ok){
-    showError("Flow call failed: HTTP "+res.status+"\n\n"+text);
-    return;
+    // Last fallback: flow returned a URL string
+    if (text.startsWith('http')) {
+      window.location.replace(text.trim());
+      return;
+    }
+
+    console.error('Flow did not return redirectUrl. Response:', text);
+  } catch (err) {
+    console.error('Error launching inspection:', err);
   }
-
-  let data;
-
-  try{
-    data = JSON.parse(text);
-  }
-  catch(e){
-    showError("Flow returned non-JSON:\n\n"+text);
-    return;
-  }
-
-  if(!data.redirectUrl){
-    showError("Flow did not return redirectUrl.\n\nResponse:\n"+JSON.stringify(data,null,2));
-    return;
-  }
-
-  window.location.replace(data.redirectUrl);
-
-}
-catch(err){
-  showError("Request error:\n"+err);
-}
-
 })();
 </script>
-
 </body>
 </html>
-
