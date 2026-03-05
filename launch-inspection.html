@@ -56,7 +56,7 @@
     // Case 2: Flow returns { prjNumber: "...", inspecNum: "0008" }
     if (!redirectUrl && data && typeof data.inspecNum === "string") {
       const inspecNum = data.inspecNum.trim();
-      redirectUrl = `${SURVEY_URL}?field:prjNumber=${encodeURIComponent(prjNumber)}&field:inspecNum=${encodeURIComponent(inspecNum)}&field:applicName=${encodeURIComponent(params.get("appname") || "")}&field:applicPhn=${encodeURIComponent(params.get("appphone") || "")}&field:applicEmail=${encodeURIComponent(params.get("appemail") || "")}&field:descrip=${encodeURIComponent(params.get("desc") || "")}`;
+      redirectUrl = `${SURVEY_URL}?field:prjNumber=${encodeURIComponent(prjNumber)}&field:inspecNum=${encodeURIComponent(inspecNum)}&field:applicName=${encodeURIComponent(params.get("applicName") || "")}&field:applicPhn=${encodeURIComponent(params.get("applicPhn") || "")}&field:applicEmail=${encodeURIComponent(params.get("applicEmail") || "")}&field:descrip=${encodeURIComponent(params.get("descrip") || "")}`;
     }
 
     // Case 3: Flow returns a plain string URL (rare, but let's support it)
@@ -83,6 +83,7 @@
 </script>
 </body>
 </html>
+
 
 
 
