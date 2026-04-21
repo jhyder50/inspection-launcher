@@ -11,7 +11,8 @@
 
       const target =
         'https://survey123.arcgis.com/share/0ece3dea5ccc47bb97c2d22c711c374d' +
-        '?field:incoming_prj=' + encodeURIComponent(incomingPrj);
+        '?field:incoming_prj=' + encodeURIComponent(incomingPrj) +
+        '&field:prjNumber=' + encodeURIComponent(incomingPrj);
 
       window.location.replace(target);
     })();
