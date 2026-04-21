@@ -3,16 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Launching Project Number...</title>
+  <title>Launching Permit Survey...</title>
   <script>
     (function () {
       const params = new URLSearchParams(window.location.search);
       const incomingPrj = params.get('incoming_prj') || '';
+      const coords = params.get('coords') || '';
 
       const target =
         'https://survey123.arcgis.com/share/0ece3dea5ccc47bb97c2d22c711c374d' +
         '?field:incoming_prj=' + encodeURIComponent(incomingPrj) +
-        '&field:prjNumber=' + encodeURIComponent(incomingPrj);
+        '&field:incoming_coords=' + encodeURIComponent(coords);
 
       window.location.replace(target);
     })();
