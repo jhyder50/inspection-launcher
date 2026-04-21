@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Launching Project Number...</title>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const incomingPrj = params.get('incoming_prj') || '';
+
+      const target =
+        'https://survey123.arcgis.com/share/0ece3dea5ccc47bb97c2d22c711c374d' +
+        '?field:incoming_prj=' + encodeURIComponent(incomingPrj);
+
+      window.location.replace(target);
+    })();
+  </script>
+</head>
+<body>
+  Redirecting...
+</body>
+</html>
