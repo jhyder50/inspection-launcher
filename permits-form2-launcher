@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Loading permits...</title>
+</head>
+<body>
+  <p>Loading permit information...</p>
+
+<script>
+(async function () {
+
+  // =========================
+  // 1. GET URL PARAMETERS
+  // =========================
+  const params = new URLSearchParams(window.location.search);
+  const prjNumber = params.get("prjNumber");
+  const globalid = params.get("globalid");
+
+  if (!prjNumber || !globalid) {
+    document.body.innerHTML = "Missing prjNumber or globalid.";
+    return;
+  }
+
+  try {
+    // =========================
+    // 2. CALL POWER AUTOMATE
+    // =========================
+    const response = await fetch("https://default5aec36760dde43ad8e4477400be574.ab.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/bd53dd51ed6a4b8a8950670a57abe547/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Llwbv1YWYFKFSDaJsdYbeZeGdo8HSaBGOM2yufEfzdQ", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        feature: {
+          attributes: {
+            prjNumber: prjNumber,
+            globalid: globalid
+          }
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    // =========================
+    // 3. BUILD SURVEY123 URL
+    // =========================
+    const surveyUrl =
+      "https://survey123.arcgis.com/share/0ece3dea5ccc47bb97c2d22c711c374d" +
+      "?field:prjNumber=" + encodeURIComponent(prjNumber) +
+      "&field:permitNum=" + encodeURIComponent(data.permitNum || "") +
+      "&field:permitInspectionSummary=" + encodeURIComponent(data.permitInspectionSummary || "");
+
+    // =========================
+    // 4. REDIRECT TO FORM 2
+    // =========================
+    window.location.href = surveyUrl;
+
+  } catch (err) {
+    document.body.innerHTML = "Error loading permit data.";
+    console.error(err);
+  }
+
+})();
+</script>
+
+</body>
+</html>
